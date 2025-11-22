@@ -1853,8 +1853,11 @@ createMessageElement(role, content, index, isStreamingPlaceholder = false, casca
         const list = document.createElement('ul');
         list.classList.add('attachment-list');
         
-        attachments.forEach(att => {
+        attachments.forEach((att, attachmentIndex) => {
             const listItem = document.createElement('li');
+            listItem.style.display = 'flex';
+            listItem.style.alignItems = 'center';
+            listItem.style.gap = '8px';
             
             const mimeType = att.mimeType || '';
             let previewElement;
@@ -1947,9 +1950,29 @@ createMessageElement(role, content, index, isStreamingPlaceholder = false, casca
             filenameSpan.className = 'attachment-filename';
             filenameSpan.textContent = att.name;
             filenameSpan.title = `${att.name} (${att.mimeType})`;
+            filenameSpan.style.flex = '1';
+            filenameSpan.style.overflow = 'hidden';
+            filenameSpan.style.textOverflow = 'ellipsis';
+            filenameSpan.style.whiteSpace = 'nowrap';
+
+            const replaceBtn = document.createElement('button');
+            replaceBtn.className = 'attachment-replace-btn material-symbols-outlined';
+            replaceBtn.textContent = 'edit_document';
+            replaceBtn.title = 'ファイルを置き換え';
+            replaceBtn.style.border = 'none';
+            replaceBtn.style.background = 'transparent';
+            replaceBtn.style.cursor = 'pointer';
+            replaceBtn.style.fontSize = '16px';
+            replaceBtn.style.color = 'var(--text-secondary)';
+            replaceBtn.style.padding = '0 4px';
+            replaceBtn.onclick = (e) => {
+                e.stopPropagation();
+                appLogic.replaceAttachment(index, attachmentIndex);
+            };
 
             listItem.appendChild(previewElement);
             listItem.appendChild(filenameSpan);
+            listItem.appendChild(replaceBtn);
             list.appendChild(listItem);
         });
         details.appendChild(list);
@@ -9553,14 +9576,70 @@ const appLogic = {
         }
     },
 
-    async retryFromMessage(index) {
+    async replaceAttachment(messageIndex, attachmentIndex) {
+        const message = state.currentMessages[messageIndex];
+        if (!message || !message.attachments || !message.attachments[attachmentIndex]) return;
+
+        const attachment = message.attachments[attachmentIndex];
+        const isUrl = attachment.mimeType === 'text/x-uri' || attachment.type === 'url';
+
+        if (isUrl) {
+            const newUrl = await uiUtils.showCustomPrompt("新しいURLを入力してください:", attachment.url || '');
+            if (newUrl) {
+                const newAttachment = {
+                    ...attachment,
+                    url: newUrl,
+                    name: newUrl // 名前もURLに更新しておく
+                };
+                state.currentMessages[messageIndex].attachments[attachmentIndex] = newAttachment;
+                await this.retryFromMessage(messageIndex, true);
+            }
+        } else {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                if (file.size > MAX_FILE_SIZE) {
+                    await uiUtils.showCustomAlert(`ファイルサイズが大きすぎます (上限: ${MAX_FILE_SIZE / 1024 / 1024}MB)`);
+                    return;
+                }
+
+                try {
+                    const base64Data = await this.fileToBase64(file);
+                    const newAttachment = {
+                        name: file.name,
+                        mimeType: file.type,
+                        base64Data: base64Data,
+                        file: file
+                    };
+
+                    state.currentMessages[messageIndex].attachments[attachmentIndex] = newAttachment;
+                    
+                    // 添付ファイル変更後は確認なしで再生成
+                    await this.retryFromMessage(messageIndex, true);
+
+                } catch (error) {
+                    console.error("添付ファイルの読み込みに失敗:", error);
+                    await uiUtils.showCustomAlert("添付ファイルの読み込みに失敗しました。");
+                }
+            };
+            input.click();
+        }
+    },
+
+    async retryFromMessage(index, skipConfirmation = false) {
         if (state.isSending) { await uiUtils.showCustomAlert("送信中です。"); return; }
         
         const userMessage = state.currentMessages[index];
         if (!userMessage || userMessage.role !== 'user') return;
     
-        const messageContentPreview = userMessage.content.substring(0, 30) + "...";
-        const confirmed = await uiUtils.showCustomConfirm(`「${messageContentPreview}」から再生成しますか？\n(これより未来の会話履歴は削除され、既存の応答は別候補として保持されます)`);
+        let confirmed = skipConfirmation;
+        if (!confirmed) {
+            const messageContentPreview = userMessage.content.substring(0, 30) + "...";
+            confirmed = await uiUtils.showCustomConfirm(`「${messageContentPreview}」から再生成しますか？\n(これより未来の会話履歴は削除され、既存の応答は別候補として保持されます)`);
+        }
     
         if (confirmed) {
             uiUtils.setSendingState(true);
