@@ -394,12 +394,13 @@ body.dark-mode #chat-overlay {
     max-height: 500px;
     margin-top: 0;
     margin-bottom: calc(var(--spacing-unit) * 2);
+    cursor: pointer;
 }
 .system-prompt-area summary {
     font-weight: 500;
-    cursor: pointer;
     font-size: 0.875rem;
     color: var(--text-system);
+    user-select: none;
 }
 
 /* --- Message Bubbles --- */

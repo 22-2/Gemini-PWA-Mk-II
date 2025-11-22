@@ -100,6 +100,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 最大ファイルサイズ (例: 10M
 const MAX_TOTAL_ATTACHMENT_SIZE = 50 * 1024 * 1024; // 1メッセージあたりの合計添付ファイルサイズ上限 (例: 50MB) - API制限も考慮
 const INITIAL_RETRY_DELAY = 100; // 初期リトライ遅延時間 (ミリ秒)
 const MAX_PROFILES = 5; // プロファイル作成の上限数
+const SYSTEM_PROMPT_INTERACTIVE_SELECTORS = 'textarea, button, input, select, label, .system-prompt-actions, a';
 let broadcastChannel = null; // タブ間通信用
 // --- デバッグログ機能 ---
 const DebugLogger = {
@@ -6515,6 +6516,15 @@ const appLogic = {
         });
         elements.saveSystemPromptBtn.addEventListener('click', () => this.saveCurrentSystemPrompt());
         elements.cancelSystemPromptBtn.addEventListener('click', () => this.cancelEditSystemPrompt());
+        if (elements.systemPromptArea && elements.systemPromptDetails) {
+            elements.systemPromptArea.addEventListener('click', (event) => {
+                if (event.target.closest(SYSTEM_PROMPT_INTERACTIVE_SELECTORS)) {
+                    return;
+                }
+                event.preventDefault();
+                elements.systemPromptDetails.open = !elements.systemPromptDetails.open;
+            });
+        }
     
         // --- プロファイルメニューの表示/非表示 ---
         elements.profileCardHeader.addEventListener('click', (e) => {
