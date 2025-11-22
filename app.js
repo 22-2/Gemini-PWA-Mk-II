@@ -1045,7 +1045,9 @@ const dbUtils = {
                     name: att.name,
                     mimeType: att.mimeType,
                     base64Data: att.base64Data,
-                    assetId: att.assetId
+                    assetId: att.assetId,
+                    type: att.type, // URL添付用
+                    url: att.url    // URL添付用
                 })) : undefined,
                 usageMetadata: msg.usageMetadata,
                 executedFunctions: msg.executedFunctions,
@@ -1899,6 +1901,19 @@ createMessageElement(role, content, index, isStreamingPlaceholder = false, casca
                         })
                         .catch(err => console.error('Base64から動画用Blobへの変換に失敗:', err));
                 }
+            } else if (mimeType === 'text/x-uri' || att.type === 'url') {
+                previewElement = document.createElement('span');
+                previewElement.className = 'attachment-thumbnail material-symbols-outlined';
+                previewElement.style.display = 'flex';
+                previewElement.style.alignItems = 'center';
+                previewElement.style.justifyContent = 'center';
+                previewElement.style.cursor = 'pointer';
+                previewElement.textContent = 'link';
+                previewElement.title = att.url;
+                previewElement.onclick = (e) => {
+                    e.stopPropagation();
+                    window.open(att.url, '_blank');
+                };
             } else {
                 previewElement = document.createElement('span');
                 previewElement.className = 'attachment-thumbnail material-symbols-outlined';
@@ -2988,14 +3003,32 @@ createMessageElement(role, content, index, isStreamingPlaceholder = false, casca
     // ファイルアップロードダイアログ表示
     showFileUploadDialog() {
         if (state.selectedFilesForUpload.length === 0 && state.pendingAttachments.length > 0) {
-            state.selectedFilesForUpload = state.pendingAttachments.map(att => ({ file: att.file }));
-            console.log("送信待ちの添付ファイルをダイアログに復元:", state.selectedFilesForUpload.map(item => item.file.name));
+            state.selectedFilesForUpload = state.pendingAttachments.map(att => ({ file: att.file, ...att }));
+            console.log("送信待ちの添付ファイルをダイアログに復元:", state.selectedFilesForUpload.map(item => item.name));
         } else if (state.selectedFilesForUpload.length === 0) {
             // ファイルが選択されておらず、送信待ちもない場合はクリアを確実にする
             state.selectedFilesForUpload = [];
         }
 
         this.updateSelectedFilesUI();
+
+        // URL追加ボタンを動的に追加
+        if (!document.getElementById('add-url-btn')) {
+            const addUrlBtn = document.createElement('button');
+            addUrlBtn.id = 'add-url-btn';
+            addUrlBtn.innerHTML = '<span class="material-symbols-outlined">link</span> URLを追加';
+            addUrlBtn.className = 'secondary-btn';
+            addUrlBtn.style.marginLeft = '10px';
+            addUrlBtn.style.display = 'inline-flex';
+            addUrlBtn.style.alignItems = 'center';
+            addUrlBtn.style.gap = '4px';
+            addUrlBtn.onclick = () => appLogic.handleAddUrl();
+            
+            if (elements.selectFilesBtn && elements.selectFilesBtn.parentNode) {
+                elements.selectFilesBtn.parentNode.insertBefore(addUrlBtn, elements.selectFilesBtn.nextSibling);
+            }
+        }
+
         elements.fileUploadDialog.showModal();
         this.updateAttachmentBadgeVisibility();
     },
@@ -3004,7 +3037,7 @@ createMessageElement(role, content, index, isStreamingPlaceholder = false, casca
     updateSelectedFilesUI() {
         elements.selectedFilesList.innerHTML = ''; // リストをクリア
         let totalSize = 0;
-        // selectedFilesForUpload には { file: File } が入っている
+        // selectedFilesForUpload には { file: File } または { type: 'url', ... } が入っている
         state.selectedFilesForUpload.forEach((item, index) => {
             const li = document.createElement('li');
             li.classList.add('selected-file-item');
@@ -3015,12 +3048,24 @@ createMessageElement(role, content, index, isStreamingPlaceholder = false, casca
 
             const nameSpan = document.createElement('span');
             nameSpan.classList.add('selected-file-name');
-            nameSpan.textContent = item.file.name;
-            nameSpan.title = item.file.name;
+            
+            if (item.type === 'url') {
+                nameSpan.textContent = item.url;
+                nameSpan.title = item.url;
+            } else {
+                nameSpan.textContent = item.file.name;
+                nameSpan.title = item.file.name;
+            }
 
             const sizeSpan = document.createElement('span');
             sizeSpan.classList.add('selected-file-size');
-            sizeSpan.textContent = formatFileSize(item.file.size); // File オブジェクトからサイズ取得
+            
+            if (item.type === 'url') {
+                sizeSpan.textContent = 'URL参照';
+            } else {
+                sizeSpan.textContent = formatFileSize(item.file.size); // File オブジェクトからサイズ取得
+                totalSize += item.file.size;
+            }
 
             infoDiv.appendChild(nameSpan);
             infoDiv.appendChild(sizeSpan);
@@ -3034,8 +3079,6 @@ createMessageElement(role, content, index, isStreamingPlaceholder = false, casca
             li.appendChild(infoDiv);
             li.appendChild(removeBtn);
             elements.selectedFilesList.appendChild(li);
-
-            totalSize += item.file.size;
         });
 
         // 合計サイズチェック
@@ -5051,7 +5094,7 @@ const appLogic = {
         return fetch(`data:${mimeType};base64,${base64}`).then(res => res.blob());
     },
 
-    _prepareApiHistory(baseMessages) {
+    async _prepareApiHistory(baseMessages) {
         console.log("[API Prep] 履歴をAPIフォーマットに変換します。");
 
         // ディープコピーで元のメッセージ配列を保護する
@@ -5104,19 +5147,54 @@ const appLogic = {
             }
         }
         
-        return historyToProcess.map(msg => {
+        const processedMessages = await Promise.all(historyToProcess.map(async (msg) => {
             const parts = [];
             let contentText = msg.content || '';
+            
+            // URL添付ファイルの処理 (毎回フェッチ)
             if (msg.role === 'user' && msg.attachments && msg.attachments.length > 0) {
-                const fileNames = msg.attachments.map(att => att.name).join(', ');
-                const attachmentText = `\n\n[添付ファイル: ${fileNames}]`;
-                contentText = (contentText.trim() ? contentText : '') + attachmentText;
+                const urlAttachments = msg.attachments.filter(a => a.type === 'url' || a.mimeType === 'text/x-uri');
+                
+                if (urlAttachments.length > 0) {
+                    uiUtils.setLoadingIndicatorText(`URLコンテンツを取得中 (${urlAttachments.length}件)...`);
+                    const urlContents = await Promise.all(urlAttachments.map(async (att) => {
+                        try {
+                            let content = "";
+                            if (window.functionCallingTools && window.functionCallingTools.fetch_url_content) {
+                                console.log(`[API Prep] URLコンテンツをフェッチ中: ${att.url}`);
+                                const result = await window.functionCallingTools.fetch_url_content({ url: att.url });
+                                content = result.content || JSON.stringify(result);
+                            } else {
+                                content = `(URL content fetch failed: Tool 'fetch_url_content' not found for ${att.url})`;
+                            }
+                            // コンテンツが長すぎる場合は切り詰めるなどの処理が必要かもしれないが、一旦そのまま
+                            return `\n\n[Content of URL: ${att.url}]\n${content}\n[End of URL Content]`;
+                        } catch (e) {
+                            console.error(`Failed to fetch URL content for ${att.url}:`, e);
+                            return `\n\n[Failed to fetch content for URL: ${att.url} - ${e.message}]`;
+                        }
+                    }));
+                    
+                    contentText += urlContents.join('');
+                }
+
+                const fileNames = msg.attachments.filter(a => a.type !== 'url' && a.mimeType !== 'text/x-uri').map(att => att.name).join(', ');
+                if (fileNames) {
+                    const attachmentText = `\n\n[添付ファイル: ${fileNames}]`;
+                    contentText = (contentText.trim() ? contentText : '') + attachmentText;
+                }
             }
+
             if (contentText.trim() !== '' || msg.isHidden) {
                 parts.push({ text: contentText });
             }
             if (msg.role === 'user' && msg.attachments && msg.attachments.length > 0) {
-                msg.attachments.forEach(att => parts.push({ inlineData: { mimeType: att.mimeType, data: att.base64Data } }));
+                msg.attachments.forEach(att => {
+                    // URL以外の添付ファイルをinlineDataとして追加
+                    if (att.type !== 'url' && att.mimeType !== 'text/x-uri') {
+                        parts.push({ inlineData: { mimeType: att.mimeType, data: att.base64Data } });
+                    }
+                });
             }
             if (msg.generated_images && msg.generated_images.length > 0) {
                 msg.generated_images.forEach(img => {
@@ -5138,7 +5216,9 @@ const appLogic = {
                 }
             }
             return { role: msg.role === 'tool' ? 'tool' : (msg.role === 'model' ? 'model' : 'user'), parts };
-        }).filter(c => c.parts.length > 0);
+        }));
+        
+        return processedMessages.filter(c => c.parts.length > 0);
     },
 
 
@@ -8577,7 +8657,7 @@ const appLogic = {
 
             const systemInstruction = finalSystemPrompt ? { role: "system", parts: [{ text: finalSystemPrompt }] } : null;
 
-            const historyForApi = this._prepareApiHistory(baseHistory);
+            const historyForApi = await this._prepareApiHistory(baseHistory);
             const newMessages = await this._internalHandleSend(historyForApi, generationConfig, systemInstruction);
             
             const finalAggregatedMessage = this._aggregateMessages(newMessages);
@@ -9514,7 +9594,7 @@ const appLogic = {
     
             try {
                 const baseHistory = state.currentMessages.filter(msg => !msg.isCascaded || msg.isSelected);
-                const historyForApi = this._prepareApiHistory(baseHistory);
+                const historyForApi = await this._prepareApiHistory(baseHistory);
     
                 modelMessage = { role: 'model', content: '', timestamp: Date.now() };
                 state.currentMessages.push(modelMessage);
@@ -9828,7 +9908,20 @@ const appLogic = {
     removeSelectedFile(indexToRemove) {
         if (indexToRemove >= 0 && indexToRemove < state.selectedFilesForUpload.length) {
             const removedFile = state.selectedFilesForUpload.splice(indexToRemove, 1)[0];
-            console.log(`ファイル "${removedFile.file.name}" をリストから削除しました。`);
+            const fileName = removedFile.file ? removedFile.file.name : removedFile.name;
+            console.log(`ファイル "${fileName}" をリストから削除しました。`);
+            uiUtils.updateSelectedFilesUI();
+        }
+    },
+
+    async handleAddUrl() {
+        const url = await uiUtils.showCustomPrompt("追加するURLを入力してください:", "https://");
+        if (url && url.trim()) {
+            state.selectedFilesForUpload.push({
+                type: 'url',
+                url: url.trim(),
+                name: url.trim()
+            });
             uiUtils.updateSelectedFilesUI();
         }
     },
@@ -9851,44 +9944,52 @@ const appLogic = {
 
         for (const item of state.selectedFilesForUpload) {
             try {
-                // 確実なキャッシュ回避のため、一度Base64に変換し、そこから新しいBlobを再生成する
-                const base64Data = await this.fileToBase64(item.file);
-                const rehydratedBlob = await this.base64ToBlob(base64Data, item.file.type);
-
-                let browserMimeType = item.file.type || '';
-                const fileName = item.file.name;
-                const fileExtension = fileName.slice(((fileName.lastIndexOf(".") - 1) >>> 0) + 2).toLowerCase();
-
-                let guessedMimeType = null;
-                if (fileExtension && extensionToMimeTypeMap[fileExtension]) {
-                    guessedMimeType = extensionToMimeTypeMap[fileExtension];
-                }
-
-                let finalMimeType;
-                if (guessedMimeType) {
-                    finalMimeType = guessedMimeType;
-                    if (finalMimeType !== browserMimeType) {
-                        console.log(`ファイル "${fileName}": 拡張子(.${fileExtension})からMIMEタイプを "${finalMimeType}" に設定 (ブラウザ提供: ${browserMimeType || '空'})`);
-                    }
-                } else if (browserMimeType) {
-                    finalMimeType = browserMimeType;
-                    console.log(`ファイル "${fileName}": ブラウザ提供のMIMEタイプ "${finalMimeType}" を使用します。(拡張子からの推測なし)`);
+                if (item.type === 'url') {
+                    attachmentsToAdd.push({
+                        type: 'url',
+                        name: item.name,
+                        url: item.url,
+                        mimeType: 'text/x-uri'
+                    });
                 } else {
-                    finalMimeType = 'application/octet-stream';
-                    console.warn(`ファイル "${fileName}": MIMEタイプ不明。拡張子(.${fileExtension})にもマッピングなし。'application/octet-stream' を使用します。`);
-                }
+                    // 確実なキャッシュ回避のため、一度Base64に変換し、そこから新しいBlobを再生成する
+                    const base64Data = await this.fileToBase64(item.file);
+                    const rehydratedBlob = await this.base64ToBlob(base64Data, item.file.type);
 
-                attachmentsToAdd.push({
-                    file: rehydratedBlob,
-                    name: fileName,
-                    mimeType: finalMimeType,
-                    base64Data: base64Data
-                });
+                    let browserMimeType = item.file.type || '';
+                    const fileName = item.file.name;
+                    const fileExtension = fileName.slice(((fileName.lastIndexOf(".") - 1) >>> 0) + 2).toLowerCase();
+
+                    let guessedMimeType = null;
+                    if (fileExtension && extensionToMimeTypeMap[fileExtension]) {
+                        guessedMimeType = extensionToMimeTypeMap[fileExtension];
+                    }
+
+                    let finalMimeType;
+                    if (guessedMimeType) {
+                        finalMimeType = guessedMimeType;
+                        if (finalMimeType !== browserMimeType) {
+                            console.log(`ファイル "${fileName}": 拡張子(.${fileExtension})からMIMEタイプを "${finalMimeType}" に設定 (ブラウザ提供: ${browserMimeType || '空'})`);
+                        }
+                    } else if (browserMimeType) {
+                        finalMimeType = browserMimeType;
+                        console.log(`ファイル "${fileName}": ブラウザ提供のMIMEタイプ "${finalMimeType}" を使用します。(拡張子からの推測なし)`);
+                    } else {
+                        finalMimeType = 'application/octet-stream';
+                        console.warn(`ファイル "${fileName}": MIMEタイプ不明。拡張子(.${fileExtension})にもマッピングなし。'application/octet-stream' を使用します。`);
+                    }
+
+                    attachmentsToAdd.push({
+                        file: rehydratedBlob,
+                        name: fileName,
+                        mimeType: finalMimeType,
+                        base64Data: base64Data
+                    });
+                }
             } catch (error) {
-                console.error(`ファイル "${item.file.name}" のBase64エンコード中にエラー:`, error);
+                console.error("ファイル処理エラー:", error);
+                await uiUtils.showCustomAlert(`ファイル「${item.file ? item.file.name : item.name}」の処理に失敗しました: ${error.message}`);
                 encodingError = true;
-                await uiUtils.showCustomAlert(`ファイル "${item.file.name}" の処理中にエラーが発生しました。`);
-                break;
             }
         }
 

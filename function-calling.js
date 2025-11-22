@@ -1588,15 +1588,36 @@ async function generate_image(args = {}) {
         const data = await response.json();
         
         if (data.error) {
-            return { error: `コンテンツの取得に失敗しました: ${data.error}` };
+            throw new Error(data.error);
         }
 
         console.log(`[Function Calling] fetch_url_content: ${data.content.substring(0, 200)}...`);
         return { success: true, content: data.content };
 
     } catch (error) {
-        console.error(`[Function Calling] fetch_url_contentでエラーが発生しました:`, error);
-        return { error: `URLコンテンツの取得中にエラーが発生しました: ${error.message}` };
+        console.warn(`[Function Calling] プロキシ経由での取得に失敗しました。直接取得を試みます: ${error.message}`);
+        
+        try {
+            const directResponse = await fetch(url);
+            if (!directResponse.ok) {
+                throw new Error(`ステータスコード: ${directResponse.status}`);
+            }
+            
+            const contentType = directResponse.headers.get('content-type');
+            let content;
+            if (contentType && contentType.includes('application/json')) {
+                const jsonData = await directResponse.json();
+                content = JSON.stringify(jsonData, null, 2);
+            } else {
+                content = await directResponse.text();
+            }
+            
+            console.log(`[Function Calling] 直接取得に成功しました。`);
+            return { success: true, content: content };
+        } catch (directError) {
+            console.error(`[Function Calling] 直接取得も失敗しました:`, directError);
+            return { error: `URLコンテンツの取得中にエラーが発生しました (Proxy: ${error.message}, Direct: ${directError.message})` };
+        }
     }
 }
 
