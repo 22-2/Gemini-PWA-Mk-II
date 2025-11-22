@@ -1562,62 +1562,32 @@ async function generate_image(args = {}) {
  async function fetch_url_content({ url }) {
     console.log(`[Function Calling] fetch_url_contentが呼び出されました。URL: ${url}`);
 
-    const PROXY_URL = 'https://gemini-pwa-mk2-proxy.marine14f.workers.dev/';
-
-    if (!PROXY_URL.startsWith('https://')) {
-        // デプロイ忘れの際にエラーメッセージを返す
-        return { error: "プロキシURLが設定されていません。この機能は現在利用できません。" };
-    }
     if (!url) {
         return { error: "引数 'url' は必須です。" };
     }
 
     try {
-        // WorkerにPOSTリクエストでURLを渡す
-        const response = await fetch(PROXY_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: url })
-        });
-
+        console.log(`[Function Calling] 直接取得を試みます: ${url}`);
+        const response = await fetch(url);
         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`プロキシサーバーからのエラー (${response.status}): ${errorText}`);
+            throw new Error(`ステータスコード: ${response.status}`);
         }
-
-        const data = await response.json();
         
-        if (data.error) {
-            throw new Error(data.error);
+        const contentType = response.headers.get('content-type');
+        let content;
+        if (contentType && contentType.includes('application/json')) {
+            const jsonData = await response.json();
+            content = JSON.stringify(jsonData);
+        } else {
+            content = await response.text();
         }
-
-        console.log(`[Function Calling] fetch_url_content: ${data.content.substring(0, 200)}...`);
-        return { success: true, content: data.content };
+        
+        console.log(`[Function Calling] URLコンテンツの取得に成功しました。`);
+        return { success: true, content: content };
 
     } catch (error) {
-        console.warn(`[Function Calling] プロキシ経由での取得に失敗しました。直接取得を試みます: ${error.message}`);
-        
-        try {
-            const directResponse = await fetch(url);
-            if (!directResponse.ok) {
-                throw new Error(`ステータスコード: ${directResponse.status}`);
-            }
-            
-            const contentType = directResponse.headers.get('content-type');
-            let content;
-            if (contentType && contentType.includes('application/json')) {
-                const jsonData = await directResponse.json();
-                content = JSON.stringify(jsonData, null, 2);
-            } else {
-                content = await directResponse.text();
-            }
-            
-            console.log(`[Function Calling] 直接取得に成功しました。`);
-            return { success: true, content: content };
-        } catch (directError) {
-            console.error(`[Function Calling] 直接取得も失敗しました:`, directError);
-            return { error: `URLコンテンツの取得中にエラーが発生しました (Proxy: ${error.message}, Direct: ${directError.message})` };
-        }
+        console.error(`[Function Calling] URLコンテンツの取得に失敗しました:`, error);
+        return { error: `URLコンテンツの取得中にエラーが発生しました: ${error.message}` };
     }
 }
 
