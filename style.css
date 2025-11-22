@@ -1777,10 +1777,12 @@ body.header-auto-hide.header-force-show #chat-screen .app-header {
 .floating-action-panel {
     position: absolute;
     top: 60px; /* ヘッダー表示時のデフォルト位置 */
-    left: 16px;
+    right: 16px;
+    left: auto;
     display: flex;
+    flex-direction: column;
     gap: 8px;
-    z-index: 5;
+    z-index: 20;
     opacity: 0; /* 初期状態は非表示 */
     pointer-events: none; /* 非表示時はクリックできないように */
     transition: opacity 0.3s ease-in-out, top var(--transition-duration) var(--transition-timing);
