@@ -1562,27 +1562,39 @@ async function generate_image(args = {}) {
  async function fetch_url_content({ url }) {
     console.log(`[Function Calling] fetch_url_contentが呼び出されました。URL: ${url}`);
 
+    const PROXY_BASE = 'http://localhost:24545/proxy';
+
     if (!url) {
         return { error: "引数 'url' は必須です。" };
     }
 
     try {
-        console.log(`[Function Calling] 直接取得を試みます: ${url}`);
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error(`ステータスコード: ${response.status}`);
-        }
+        // 新しいプロキシ仕様に合わせてURLを構築
+        // req.query.url を受け取る仕様に対応
+        const proxyUrl = `${PROXY_BASE}?url=${encodeURIComponent(url)}`;
         
+        console.log(`[Function Calling] プロキシ(${proxyUrl})経由で取得を試みます`);
+        
+        // プロキシは透過的に振る舞うため、単純にGETリクエストを送る
+        const response = await fetch(proxyUrl);
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`プロキシサーバーからのエラー (${response.status}): ${errorText}`);
+        }
+
+        // プロキシは元のContent-Typeを返すので、それに基づいて処理
         const contentType = response.headers.get('content-type');
         let content;
+        
         if (contentType && contentType.includes('application/json')) {
             const jsonData = await response.json();
-            content = JSON.stringify(jsonData);
+            content = JSON.stringify(jsonData, null, 2);
         } else {
             content = await response.text();
         }
-        
-        console.log(`[Function Calling] URLコンテンツの取得に成功しました。`);
+
+        console.log(`[Function Calling] fetch_url_content: ${content.substring(0, 200)}...`);
         return { success: true, content: content };
 
     } catch (error) {
