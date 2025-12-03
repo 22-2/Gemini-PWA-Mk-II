@@ -9995,7 +9995,7 @@ const appLogic = {
     },
 
     async handleAddUrl() {
-        const url = await uiUtils.showCustomPrompt("追加するURLを入力してください:", "https://");
+        const url = await uiUtils.showCustomPrompt("追加するURLを入力してください:", "");
         if (url && url.trim()) {
             state.selectedFilesForUpload.push({
                 type: 'url',
