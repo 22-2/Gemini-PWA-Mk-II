@@ -9592,7 +9592,8 @@ const appLogic = {
                     name: newUrl // 名前もURLに更新しておく
                 };
                 state.currentMessages[messageIndex].attachments[attachmentIndex] = newAttachment;
-                await this.retryFromMessage(messageIndex, true);
+                // 添付を置き換えても再生成しない（UIを更新）
+                uiUtils.renderChatMessages();
             }
         } else {
             const input = document.createElement('input');
@@ -9617,8 +9618,8 @@ const appLogic = {
 
                     state.currentMessages[messageIndex].attachments[attachmentIndex] = newAttachment;
                     
-                    // 添付ファイル変更後は確認なしで再生成
-                    await this.retryFromMessage(messageIndex, true);
+                    // 添付ファイルを置き換えても自動で再生成しないようにする
+                    uiUtils.renderChatMessages();
 
                 } catch (error) {
                     console.error("添付ファイルの読み込みに失敗:", error);
