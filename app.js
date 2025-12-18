@@ -2665,13 +2665,13 @@ createMessageElement(role, content, index, isStreamingPlaceholder = false, casca
         appLogic.toggleMemoryOptions(state.settings.enableMemory);
         
         // ヘッダー自動非表示機能のUIを更新
-        elements.headerAutoHideToggle.checked = state.settings.headerAutoHide;
-        elements.summaryModelNameSelect.value = state.settings.summaryModelName || state.settings.modelName || 'gemini-2.5-flash';
-        elements.summarySystemPromptTextarea.value = state.settings.summarySystemPrompt || '';
-        elements.enableSummaryButtonToggle.checked = state.settings.enableSummaryButton;
+        if (elements.headerAutoHideToggle) elements.headerAutoHideToggle.checked = state.settings.headerAutoHide;
+        if (elements.summaryModelNameSelect) elements.summaryModelNameSelect.value = state.settings.summaryModelName || state.settings.modelName || 'gemini-2.5-flash';
+        if (elements.summarySystemPromptTextarea) elements.summarySystemPromptTextarea.value = state.settings.summarySystemPrompt || '';
+        if (elements.enableSummaryButtonToggle) elements.enableSummaryButtonToggle.checked = state.settings.enableSummaryButton;
         document.body.classList.toggle('header-auto-hide', state.settings.headerAutoHide);
-        elements.floatingPanelBehaviorSelect.value = state.settings.floatingPanelBehavior || 'on-click';
-        elements.dropboxSyncFrequencySelect.value = state.settings.dropboxSyncFrequency || 'instant';
+        if (elements.floatingPanelBehaviorSelect) elements.floatingPanelBehaviorSelect.value = state.settings.floatingPanelBehavior || 'on-click';
+        if (elements.dropboxSyncFrequencySelect) elements.dropboxSyncFrequencySelect.value = state.settings.dropboxSyncFrequency || 'instant';
 
         const defaultHeaderColor = state.settings.darkMode ? DARK_THEME_COLOR : LIGHT_THEME_COLOR;
         elements.headerColorInput.value = state.settings.headerColor || defaultHeaderColor;
