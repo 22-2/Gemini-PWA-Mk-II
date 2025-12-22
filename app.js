@@ -17,7 +17,7 @@ const CHATS_STORE = 'chats';
 const IMAGE_STORE = 'image_store';
 const CHAT_UPDATEDAT_INDEX = 'updatedAtIndex';
 const CHAT_CREATEDAT_INDEX = 'createdAtIndex';
-const DEFAULT_MODEL = 'gemini-2.5-pro';
+const DEFAULT_MODEL = 'gemini-3-flash-preview';
 const DEFAULT_TEMPERATURE = 0.5;
 const DEFAULT_MAX_TOKENS = 4000;
 const DEFAULT_TOP_K = 40;
@@ -529,7 +529,7 @@ const state = {
         thinkingBudget: null,
         includeThoughts: false,
         enableThoughtTranslation: true, // 思考プロセスの翻訳を有効にするか
-        thoughtTranslationModel: 'gemini-2.5-flash-lite',
+        thoughtTranslationModel: 'gemini-3-flash-preview',
         dummyUser: '',
         applyDummyToProofread: false,
         applyDummyToTranslate: false,
@@ -552,7 +552,7 @@ const state = {
         enableApiTimeout: false,
         apiTimeoutSeconds: 90,
         enableProofreading: false,
-        proofreadingModelName: 'gemini-2.5-flash',
+        proofreadingModelName: 'gemini-3-flash-preview',
         proofreadingSystemInstruction: 'あなたはプロの編集者です。受け取った文章の過剰な読点を抑制し、日本語として違和感のない読点の使用量に校正してください。承知しました等の応答は行わず、校正後の文章のみ出力して下さい。読点の抑制以外の編集は禁止です。読点以外の文章には絶対に手を付けないで下さい。',
         geminiEnableGrounding: false,
         geminiEnableFunctionCalling: false,
@@ -586,7 +586,7 @@ const state = {
         sdApiUser: '',
         sdApiPassword: '',
         sdEnableQualityChecker: false,
-        sdQcModel: 'gemini-2.5-pro',
+        sdQcModel: 'gemini-3-flash-preview',
         sdQcPrompt: `あなたはプロンプトと画像を比較し、指示通りに生成されているか評価する専門家です。
 以下のプロンプトと画像の内容を厳密に比較してください。
 
@@ -602,7 +602,7 @@ const state = {
 Result: [OKまたはNG]
 Reason: [NGの場合の理由]`,
         sdQcRetries: 3,
-        sdPromptImproveModel: 'gemini-2.5-flash',
+        sdPromptImproveModel: 'gemini-3-flash-preview',
         sdPromptImproveSystemPrompt: `あなたはプロのプロンプトエンジニアです。提示された「元のプロンプト」と「失敗理由」に基づき、失敗理由を解決するための改善された英語の画像生成プロンプトを生成してください。余計な解説や前置きは一切含めず、改善されたプロンプト本体のみを出力してください。`,
         debugMode: false,
     },
