@@ -571,6 +571,23 @@ body.dark-mode #settings-screen a:hover {
     margin-top: calc(var(--spacing-unit) * 2);
 }
 
+.custom-dialog button,
+.custom-dialog .dialog-button {
+    min-width: 140px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.dialog-cancel-btn {
+    background-color: var(--bg-button-cancel);
+}
+
+.dialog-cancel-btn:hover {
+    background-color: var(--bg-button-cancel-hover);
+}
+
 /* --- Other Styles --- */
 .danger-zone {
     margin-top: 30px;
@@ -658,11 +675,21 @@ input[type="color"]::-moz-color-swatch { border: 1px solid var(--border-primary)
 .attachment-list li { margin-bottom: 4px; font-size: 10px; color: var(--text-attachment-filename); overflow-wrap: break-word; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.4; }
 #fileUploadDialog { min-width: 320px; max-width: 600px; width: 90%; }
 .dialog-content { margin-bottom: 20px; }
-.file-upload-area { margin-bottom: 15px; text-align: center; }
+.file-upload-area {
+    margin-bottom: 15px;
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-unit);
+}
 .file-upload-area .dialog-button {
     /* ボタンらしい見た目を再現するためのスタイル */
-    display: inline-block; /* 中央揃えとpaddingを正しく適用するため */
-    padding: 10px 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: var(--spacing-unit) calc(var(--spacing-unit) * 2);
+    height: 40px;
+    box-sizing: border-box;
     font-size: 14px;
     font-weight: 500;
     text-transform: uppercase;

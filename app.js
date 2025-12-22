@@ -3049,11 +3049,7 @@ createMessageElement(role, content, index, isStreamingPlaceholder = false, casca
             const addUrlBtn = document.createElement('button');
             addUrlBtn.id = 'add-url-btn';
             addUrlBtn.innerHTML = '<span class="material-symbols-outlined">link</span> URLを追加';
-            addUrlBtn.className = 'secondary-btn';
-            addUrlBtn.style.marginLeft = '10px';
-            addUrlBtn.style.display = 'inline-flex';
-            addUrlBtn.style.alignItems = 'center';
-            addUrlBtn.style.gap = '4px';
+            addUrlBtn.className = 'dialog-button';
             addUrlBtn.onclick = () => appLogic.handleAddUrl();
             
             if (elements.selectFilesBtn && elements.selectFilesBtn.parentNode) {
@@ -9942,7 +9938,7 @@ const appLogic = {
         let currentTotalSize = state.selectedFilesForUpload.reduce((sum, item) => sum + item.file.size, 0);
 
         elements.selectFilesBtn.disabled = true;
-        elements.selectFilesBtn.textContent = '処理中...';
+        elements.selectFilesBtn.innerHTML = '<span class="material-symbols-outlined">sync</span> 処理中...';
 
         for (const file of newFiles) {
             // 個別ファイルサイズチェック
@@ -9973,7 +9969,7 @@ const appLogic = {
         }
 
         elements.selectFilesBtn.disabled = false;
-        elements.selectFilesBtn.textContent = 'ファイルを選択';
+        elements.selectFilesBtn.innerHTML = '<span class="material-symbols-outlined">upload_file</span> ファイルを選択';
 
         // スキップされたファイルがあればまとめて通知
         let alertMessage = '';
