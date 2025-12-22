@@ -7042,6 +7042,16 @@ const appLogic = {
                 this.cancelAttachment();
             }
         });
+
+        // --- ダイアログの背景クリックで閉じる ---
+        document.querySelectorAll('dialog:not(#progressDialog)').forEach(dialog => {
+            dialog.addEventListener('click', (event) => {
+                if (event.target === dialog) {
+                    dialog.close();
+                }
+            });
+        });
+
         document.addEventListener('click', (e) => {
             const button = e.target.closest('button');
             if (button && !button.disabled) {
