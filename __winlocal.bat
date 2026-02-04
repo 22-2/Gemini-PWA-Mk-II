@@ -24,7 +24,7 @@ public class EasyFaceHTTPServer {
 
         // PCのブラウザを起動、ローカルホストへHTML要求
         // デフォルトで index.html を開くように修正（より一般的）
-        Process.Start(new ProcessStartInfo {FileName = URL + "index.html", UseShellExecute = true});
+        // Process.Start(new ProcessStartInfo {FileName = URL + "index.html", UseShellExecute = true});
 
         while (true) {// リクエストがあるまで停止、あれば非同期で処理
             HttpListenerContext ctx = listener.GetContext();
